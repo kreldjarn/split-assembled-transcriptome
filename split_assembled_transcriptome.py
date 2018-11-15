@@ -27,6 +27,11 @@ def parse_rest(rest, file_format='.gff3'):
 def parse_gff(path, file_format):
     # Who the hell came up with this stupid file format?
     genes = {}
+
+    # Deal in transcripts in GTF.
+    # TODO: Deal in transcripts in GFF3
+    trs = {}
+    tr2g = []
     rest = []
     with open(path, 'r') as fh:
         for line in fh:
@@ -50,14 +55,26 @@ def parse_gff(path, file_format):
                     rest.append(fields)
             elif file_format == '.gtf':
                 if fields['feature'] in ['exon', 'UTR', 'stop_codon']:
+                    # fields['rest'] = parse_rest(data[8], file_format)
+                    # gene = fields['rest']['gene_id']
+                    # if gene not in genes:
+                        # genes[gene] = {'name': gene, 'exons': [fields]}
+                        # genes[gene]['scaffold'] = fields['scaffold']
+                        # genes[gene]['strand'] = fields['strand']
+                    # else:
+                        # genes[gene]['exons'].append(fields)
                     fields['rest'] = parse_rest(data[8], file_format)
-                    gene = fields['rest']['gene_id']
-                    if gene not in genes:
-                        genes[gene] = {'name': gene, 'exons': [fields]}
-                        genes[gene]['scaffold'] = fields['scaffold']
-                        genes[gene]['strand'] = fields['strand']
+                    tr = fields['rest']['transcript_id']
+                    if tr not in trs:
+                        trs[tr] = {
+                                'name': tr,
+                                'exons': [fields],
+                                'scaffold': fields['scaffold'],
+                                'strant': fileds['strand']
+                        }
+                        tr2g.append(f'{tr}\t{fields["rest"]["gene_id"]}')
                     else:
-                        genes[gene]['exons'].append(fields)
+                        trs[tr]['exons'].append(fields)
 
 
     for line in rest:
@@ -69,7 +86,13 @@ def parse_gff(path, file_format):
         # for key, value in genes.items():
             # print(f'{key}\t{len(value["exons"])}', file=fh)
 
-    return genes
+    with open('tr2g', 'w') as fh:
+        fh.write('\n'.join(tr2g))
+
+    if file_format == '.gff3':
+        return genes
+    elif file_format == '.gtf':
+        return trs
 
 def parse_fasta(path):
     scaffolds = {}
@@ -135,6 +158,8 @@ def split_assembled_genome(gff_path, fasta_path, file_format):
     starts = []
     ends = []
     for gene, data in genes.items():
+        starts = []
+        ends = []
         intervals = []
         sequence = scaffolds[data['scaffold']]
         for exon in data['exons']:
@@ -142,9 +167,14 @@ def split_assembled_genome(gff_path, fasta_path, file_format):
             starts.append(int(exon['start']) - 1)
             ends.append(int(exon['end']) - 1)
 
-        intervals = merge_intervals(intervals)
+        intervals = list(merge_intervals(intervals))
 
         proc = ''.join(map(lambda iv: sequence[iv[0]:iv[1]], intervals))
+        print('=============================')
+        print(max(ends), min(ends))
+        print(max(ends) - min(starts))
+        print(intervals)
+
         unproc = sequence[min(starts):max(ends)]
         proc = collapse_N(proc).upper()
         unproc = collapse_N(unproc).upper()
