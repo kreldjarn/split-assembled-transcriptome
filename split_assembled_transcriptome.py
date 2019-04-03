@@ -2,6 +2,11 @@
 import sys
 from operator import itemgetter
 
+"""
+Usage:
+python3 split_assembled_transcriptome.py annotation.gtf3 reads.fasta
+"""
+
 def reverse_complement(string):
     comp = {
         'A': 'T',
@@ -30,11 +35,18 @@ def parse_gff(path, file_format):
 
     # Deal in transcripts in GTF.
     # TODO: Deal in transcripts in GFF3
+
+    # TODO:
+    # Save processed and unprocessed versions of transcripts
+    # and genes in tr2g !
     trs = {}
     tr2g = []
     rest = []
     with open(path, 'r') as fh:
         for line in fh:
+            # Skip comments
+            if line.startswith('#'):
+                continue
             data = line.split('\t')
 
             fields = {
@@ -70,7 +82,7 @@ def parse_gff(path, file_format):
                                 'name': tr,
                                 'exons': [fields],
                                 'scaffold': fields['scaffold'],
-                                'strant': fileds['strand']
+                                'strand': fields['strand']
                         }
                         tr2g.append(f'{tr}\t{fields["rest"]["gene_id"]}')
                     else:
@@ -105,7 +117,7 @@ def parse_fasta(path):
                 if len(current) > 0:
                     scaffolds[current] = ''.join(sequences)
                 sequences = []
-                current = line[1:]
+                current = line.split()[0][1:]
             else:
                 sequences.append(line)
 
@@ -157,11 +169,18 @@ def split_assembled_genome(gff_path, fasta_path, file_format):
     print('scaffolds parsed')
     starts = []
     ends = []
+
+    wrong_scaffolds = 0
     for gene, data in genes.items():
         starts = []
         ends = []
         intervals = []
-        sequence = scaffolds[data['scaffold']]
+        if data['scaffold'] in scaffolds:
+            sequence = scaffolds[data['scaffold']]
+        else:
+            print(f'{data["scaffold"]} not in FASTA file {fasta_path}')
+            wrong_scaffolds += 1
+            continue
         for exon in data['exons']:
             intervals.append((int(exon['start']) - 1, int(exon['end']) -1))
             starts.append(int(exon['start']) - 1)
@@ -170,10 +189,6 @@ def split_assembled_genome(gff_path, fasta_path, file_format):
         intervals = list(merge_intervals(intervals))
 
         proc = ''.join(map(lambda iv: sequence[iv[0]:iv[1]], intervals))
-        print('=============================')
-        print(max(ends), min(ends))
-        print(max(ends) - min(starts))
-        print(intervals)
 
         unproc = sequence[min(starts):max(ends)]
         proc = collapse_N(proc).upper()
@@ -189,6 +204,7 @@ def split_assembled_genome(gff_path, fasta_path, file_format):
             fh.write(f'>{gene}\n')
             fh.write('\n'.join([unproc[i:i+80] for i in range(0, len(unproc), 80)]))
             fh.write('\n')
+    print(f'{wrong_scaffolds} scaffolds not found')
 
 if __name__ == '__main__':
     gff_path = sys.argv[1]
