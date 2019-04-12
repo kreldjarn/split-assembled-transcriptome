@@ -145,7 +145,6 @@ def find_splice_junctions(gff_path, fasta_path, file_format, k=31):
         splice_junctions = [
             collapse_N(sequence[iv[0]:iv[1]].upper()) for iv in sjs
         ]
-        # splice_junctions = map(lambda iv: sequence[iv[0]:iv[1]], intervals)
 
         if data['strand'] == '-':
             splice_junctions = map(reverse_complement, splice_junctions)
@@ -153,7 +152,6 @@ def find_splice_junctions(gff_path, fasta_path, file_format, k=31):
             for i, sj in enumerate(splice_junctions):
                 fh.write(f'>{gene}:{i}\n')
                 fh.write(f'{sj}\n')
-                # fh.write('\n'.join([proc[i:i+80] for i in range(0, len(proc), 80)]))
     print(f'{wrong_scaffolds} scaffolds not found')
 
 if __name__ == '__main__':
