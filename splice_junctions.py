@@ -110,7 +110,7 @@ def collapse_N(string, k=31):
     return ''.join(mod)
 
 
-def split_assembled_genome(gff_path, fasta_path, file_format, k=31):
+def find_splice_junctions(gff_path, fasta_path, file_format, k=31):
     genes = parse_gff(gff_path, file_format)
     print('gff parsed')
     scaffolds = parse_fasta(fasta_path)
@@ -162,4 +162,4 @@ if __name__ == '__main__':
     if file_format not in ['.gff', '.gtf', '.gff3']:
         print(f'File format {file_format} not recognized')
     else:
-        split_assembled_genome(sys.argv[1], sys.argv[2], file_format)
+        find_splice_junctions(sys.argv[1], sys.argv[2], file_format)
