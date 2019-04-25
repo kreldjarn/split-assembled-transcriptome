@@ -18,9 +18,6 @@ def parse_gff(path, file_format):
     # Deal in transcripts in GTF.
     # TODO: Deal in transcripts in GFF3
 
-    # TODO:
-    # Save processed and unprocessed versions of transcripts
-    # and genes in tr2g !
     trs = {}
     tr2g = []
     rest = []
