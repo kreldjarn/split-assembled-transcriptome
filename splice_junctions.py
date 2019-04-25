@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import re
 from operator import itemgetter
 
 """
@@ -13,7 +14,13 @@ def reverse_complement(string):
         'T': 'A',
         'G': 'C',
         'C': 'G',
-        'N': 'N',
+        'M': 'K',
+        'K': 'M',
+        'Y': 'R',
+        'R': 'Y',
+        'S': 'S',
+        'W': 'W',
+        'N': 'N'
     }
     return ''.join(list(map(lambda c: comp[c], string))[::-1])
 
@@ -23,11 +30,14 @@ def parse_rest(rest, file_format='.gff3'):
         return dict(map(lambda x: x.rstrip('\n').split('='), rest.split(';')))
     elif file_format == '.gtf':
         # Sorry, this is a disgusting file format
+        # Who the heck puts semicolons in a semicolon-delimited file?!
+        PATTERN = re.compile(r'''((?:[^;"']|"[^"]*"|'[^']*')+)''')
+        rest = PATTERN.split(rest)[1::2]
         return dict(map(lambda x: x.rstrip('\n')\
                                    .lstrip(' ')\
                                    .replace('"', '')\
-                                   .split(' ', 1),
-                        rest.rstrip(';').split(';')[:-1]))
+                                   .split(' ', 1), rest))
+                        # rest.rstrip(';').split(';')[:-1]))
 
 def parse_gff(path, file_format):
     # Who the hell came up with this stupid file format?
@@ -110,7 +120,7 @@ def collapse_N(string, k=31):
     return ''.join(mod)
 
 
-def find_splice_junctions(gff_path, fasta_path, file_format, k=31):
+def find_splice_junctions(gff_path, fasta_path, file_format, od='.', k=31):
     genes = parse_gff(gff_path, file_format)
     print('gff parsed')
     scaffolds = parse_fasta(fasta_path)
@@ -148,7 +158,7 @@ def find_splice_junctions(gff_path, fasta_path, file_format, k=31):
 
         if data['strand'] == '-':
             splice_junctions = map(reverse_complement, splice_junctions)
-        with open('splice_junctions.fasta', 'a') as fh:
+        with open(f'{od}/splice_junctions.fasta', 'a') as fh:
             for i, sj in enumerate(splice_junctions):
                 fh.write(f'>{gene}:{i}\n')
                 fh.write(f'{sj}\n')
