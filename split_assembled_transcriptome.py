@@ -46,14 +46,6 @@ def parse_gff(path, file_format):
                     rest.append(fields)
             elif file_format == '.gtf':
                 if fields['feature'] in ['exon', 'UTR', 'stop_codon']:
-                    # fields['rest'] = parse_rest(data[8], file_format)
-                    # gene = fields['rest']['gene_id']
-                    # if gene not in genes:
-                        # genes[gene] = {'name': gene, 'exons': [fields]}
-                        # genes[gene]['scaffold'] = fields['scaffold']
-                        # genes[gene]['strand'] = fields['strand']
-                    # else:
-                        # genes[gene]['exons'].append(fields)
                     fields['rest'] = parse_rest(data[8], file_format)
                     tr = fields['rest']['transcript_id']
                     if tr not in trs:
