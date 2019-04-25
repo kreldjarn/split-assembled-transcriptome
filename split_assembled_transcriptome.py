@@ -1,43 +1,15 @@
 #!/usr/bin/env python3
 import sys
-import re
 from operator import itemgetter
+
+
+from utils import reverse_complement, parse_rest, parse_fasta, merge_intervals, collapse_N
 
 """
 Usage:
 python3 split_assembled_transcriptome.py annotation.gtf3 reads.fasta
 """
 
-def reverse_complement(string):
-    comp = {
-        'A': 'T',
-        'T': 'A',
-        'G': 'C',
-        'C': 'G',
-        'M': 'K',
-        'K': 'M',
-        'Y': 'R',
-        'R': 'Y',
-        'S': 'S',
-        'W': 'W',
-        'N': 'N'
-    }
-    return ''.join(list(map(lambda c: comp[c], string))[::-1])
-
-def parse_rest(rest, file_format='.gff3'):
-    # Parses the 'Attributes' field of the gff
-    if file_format == '.gff3':
-        return dict(map(lambda x: x.rstrip('\n').split('='), rest.split(';')))
-    elif file_format == '.gtf':
-        # Sorry, this is a disgusting file format
-        # Who the heck puts semicolons in a semicolon-delimited file?!
-        PATTERN = re.compile(r'''((?:[^;"']|"[^"]*"|'[^']*')+)''')
-        rest = PATTERN.split(rest)[1::2]
-        return dict(map(lambda x: x.rstrip('\n')\
-                                   .lstrip(' ')\
-                                   .replace('"', '')\
-                                   .split(' ', 1), rest))
-                        # rest.rstrip(';').split(';')[:-1]))
 
 def parse_gff(path, file_format):
     # Who the hell came up with this stupid file format?
@@ -115,62 +87,6 @@ def parse_gff(path, file_format):
         return genes
     elif file_format == '.gtf':
         return trs
-
-def parse_fasta(path):
-    scaffolds = {}
-    sequences = []
-    current = ''
-    with open(path, 'r') as fh:
-        for line in fh:
-            line = line.rstrip('\n')
-            if line.startswith('>'):
-                if len(current) > 0:
-                    scaffolds[current] = ''.join(sequences)
-                sequences = []
-                current = line.split()[0][1:]
-            else:
-                sequences.append(line)
-
-        scaffolds[current] = ''.join(sequences)
-    return scaffolds
-
-def merge_intervals(intervals):
-    # TODO:
-    # Confirm with Lior or Jase whether this is the correct thing to do
-    sorted_intervals = sorted(intervals, key=itemgetter(0))
-
-    if not sorted_intervals:  # no intervals to merge
-        return
-
-    # low and high represent the bounds of the current run of merges
-    low, high = sorted_intervals[0]
-
-    for iv in sorted_intervals[1:]:
-        if iv[0] <= high:  # new interval overlaps current run
-            high = max(high, iv[1])  # merge with the current run
-        else:  # current run is over
-            yield low, high  # yield accumulated interval
-            low, high = iv  # start new run
-
-    yield low, high  # end the final run
-
-def collapse_N(string, k=31):
-    # Collapses arbitrary length regions of N-bases into regions of length k
-    curr = False
-    mod = []
-    counter = 0
-    for c in string:
-        if c == 'N' and curr and counter >= k:
-            continue
-        elif c == 'N':
-            curr = True
-            counter += 1
-        else:
-            curr = False
-            counter = 0
-        mod.append(c)
-    return ''.join(mod)
-
 
 def split_assembled_genome(gff_path, fasta_path, file_format, od='.'):
     genes = parse_gff(gff_path, file_format)
