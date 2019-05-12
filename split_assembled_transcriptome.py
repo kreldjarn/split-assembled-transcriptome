@@ -6,11 +6,11 @@ Author:
     keldjarn@caltech.edu
 
 Usage:
-python3 split_assembled_transcriptome.py annotation.gtf3 reads.fasta output_directory L
+./split_assembled_transcriptome.py annotation.gtf3 reads.fasta output_directory L
 
 Parses a gff/gtf file into the following collections
 ===============================================================================
-    Non-ambiguous:
+    Unambiguous:
         a) Processed
             a.i)    Exon-exon splice junctions
         b) Unprocessed
@@ -58,6 +58,7 @@ def process_gene(gene, scaffolds, od, L):
     exon_union = merge_intervals(ivs)
     itrs = [(i[0][1], i[1][0]) for i in zip(exons[:-1], exons[1:])\
                                for _, exons in gene['trs'].items()]
+    # Look for retained introns at beginning/end of gene
     for tr, exons in transcripts.items():
         if exons[0]['start'] > start:
             itrs.append((start, exons[0]['start']))
@@ -78,10 +79,9 @@ def process_gene(gene, scaffolds, od, L):
     #   b.i) Non-retained exon-intron splice junctions   #
     #====================================================#
     sjs = []
-    for tr, exons in transcripts.items():
-        for e in exons:
-            sjs.append((e['start'] - L + 1, e['start'] + L - 1))
-            sjs.append((e['end'] - L + 1, e['end'] + L - 1))
+    for e in ivs:
+        sjs.append((e['start'] - L + 1, e['start'] + L - 1))
+        sjs.append((e['end'] - L + 1, e['end'] + L - 1))
 
     retained_sjs = []
     nonretained_sjs = []
@@ -130,16 +130,6 @@ def process_gene(gene, scaffolds, od, L):
     #==============================================#
     append_to_fasta(gene['name'], collapse_data(retained_sjs, sequence),
                     f'{od}/e.fasta')
-
-        # If current isoform doesn't start at gene boundaries, we add those as
-        # retained introns
-        # if start < min(exons, key=lambda i: i[0]):
-            # itrs = [(start, exons[0][0])] + itrs
-        # if end > max(exons, key=lambda i: i[1]):
-            # itrs = itrs + [(exons[-1][1], end)]
-
-
-
 
 def parse_gff(path, scaffolds, file_format, od, L):
     # Who the hell came up with this hecking file format?
@@ -196,44 +186,7 @@ def parse_gff(path, scaffolds, file_format, od, L):
 
 def split_assembled_genome(gff_path, fasta_path, file_format, od='.', L=150):
     scaffolds = parse_fasta(fasta_path)
-    print('scaffolds parsed')
     trs, itrs = parse_gff(gff_path, scaffolds, file_format, od, L)
-    print('gff parsed')
-
-    """
-    wrong_scaffolds = 0
-    for tr, data in trs.items():
-        if data['scaffold'] in scaffolds:
-            sequence = scaffolds[data['scaffold']]
-        else:
-            print(f'{data["scaffold"]} not in FASTA file {fasta_path}')
-            wrong_scaffolds += 1
-            continue
-        intervals = [(int(e['start']) - 1, int(e['end']) -1)) for e in data['exons']]
-        inv_intervals = [(i[0][1], i[1][0]) for i in zip(intervals[:-1], intervals[1:])]
-
-        intervals = list(merge_intervals(intervals))
-        inv_intervals = list(merge_intervals(inv_intervals))
-
-        proc = ''.join(map(lambda iv: sequence[iv[0]:iv[1]], intervals))
-        itrs = ''.join(map(lambda iv: sequence[iv[0]:iv[1]], intervals))
-
-        proc = collapse_N(proc.upper())
-        itrs = collapse_N(itrs.upper())
-
-        if data['strand'] == '-':
-            proc = reverse_complement(proc)
-            itrs = reverse_complement(itrs)
-        with open(f'{od}/processed.fasta', 'a') as fh:
-            fh.write(f'>{tr}\n')
-            fh.write('\n'.join([proc[i:i+80] for i in range(0, len(proc), 80)]))
-            fh.write('\n')
-        with open(f'{od}/intron_union.fasta', 'a') as fh:
-            fh.write(f'>{itr}\n')
-            fh.write('\n'.join([itrs[i:i+80] for i in range(0, len(itrs), 80)]))
-            fh.write('\n')
-    print(f'{wrong_scaffolds} scaffolds not found')
-    """
 
 if __name__ == '__main__':
     gff_path = sys.argv[1]
