@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
+
 """
 Author:
     Kristján Eldjárn Hjörleifsson
     keldjarn@caltech.edu
 
 Usage:
-python3 split_assembled_transcriptome.py annotation.gtf3 reads.fasta
+python3 split_assembled_transcriptome.py annotation.gtf3 reads.fasta output_directory L
 
 Parses a gff/gtf file into the following collections
-==============================================================================
+===============================================================================
     Non-ambiguous:
         a) Processed
             a.i)    Exon-exon splice junctions
@@ -19,40 +20,129 @@ Parses a gff/gtf file into the following collections
         c) Exon intersection
         d) Retained introns (i.e. pairwise exon set difference)
         e) Retained exon-intron splice junctions
-==============================================================================
+===============================================================================
 
 Returns the corresponding sequences from the corresponding fasta scaffolds,
 correcting for strandedness.
 """
+
 import sys
 from operator import itemgetter
 from itertools import chain
 
-from utils import (reverse_complement, parse_rest, parse_fasta,
-                   merge_intervals, collapse_N)
+from utils import (reverse_complement, parse_rest, parse_fasta, collapse_N,
+                   merge_intervals)
 
-def process_gene(gene, scaffolds):
-    exons = {
+def append_to_fasta(tr, data, path):
+    with open(path, 'a') as fh:
+        fh.write(f'>{tr}\n')
+        fh.write('\n'.join([data[i:i+80] for i in range(0, len(data), 80)]))
+        fh.write('\n')
+
+def collapse_data(intervals, sequence):
+    data = ''.join(map(lambda iv: sequence[iv[0]:iv[1]], intervals))
+    data = collapse_N(data.upper())
+    if gene['strand'] == '-':
+        data = reverse_complement(data)
+    return data
+
+def process_gene(gene, scaffolds, od, L):
+    sequence = scaffolds[gene['scaffold']]
+    transcripts = {
         tr: [(e['start'], e['end']) for e in exons['exons']]\
              for tr, exons in gene['trs'].items()
     }
+    ivs = list(chain(*transcripts.values()))
+    start, end = min(ivs, key=lambda i: i[0]), max(ivs, key=lambda i: i[1])
+
+    exon_union = merge_intervals(ivs)
+    itrs = [(i[0][1], i[1][0]) for i in zip(exons[:-1], exons[1:])\
+                               for _, exons in gene['trs'].items()]
+    for tr, exons in transcripts.items():
+        if exons[0]['start'] > start:
+            itrs.append((start, exons[0]['start']))
+        if exons[-1]['end'] < end:
+            itrs.append((exons[-1]['end'], end))
+    itrs = sorted(itrs, key=itemgetter(0))
+    itr_union = merge_intervals(itrs)
+
+    #===================================#
+    #   a) Exon-exon splice junctions   #
+    #===================================#
+    for tr, exons in transcripts.items():
+        ee_sjs = [(ee[0][1] - L + 1, ee[1][0] + L - 1)\
+                  for ee in zip(exons[:-1], exons[1:])]
+        append_to_fasta(tr, collapse_data(ee_sjs, sequence), f'{od}/a.fasta')
+
+    #====================================================#
+    #   b.i) Non-retained exon-intron splice junctions   #
+    #====================================================#
+    sjs = []
+    for tr, exons in transcripts.items():
+        for e in exons:
+            sjs.append((e['start'] - L + 1, e['start'] + L - 1))
+            sjs.append((e['end'] - L + 1, e['end'] + L - 1))
+
+    retained_sjs = []
+    nonretained_sjs = []
+    for sj in sjs:
+        retained = False
+        for iv in itr_union + exon_union:
+            if iv[0] <= sj[0] and iv[1] >= sj[1]:
+                retained = True
+                break
+        if retained:
+            retained_sjs.append(sj)
+        else:
+            nonretained_sjs.append(sj)
+
+    append_to_fasta(gene['name'], collapse_data(nonretained_sjs, sequence),
+                    f'{od}/bi.fasta')
+
     #===============================#
     #   b.ii) Intron intersection   #
     #===============================#
-    # ivs = list(chain(*exons.values()))
-    exon_union = merge_intervals(list(chain(*exons.values())))
     itr_intersect = [(i[0][1], i[1][0]) for i in zip(exon_union[:-1],
                                                      exon_union[1:])]
+    append_to_fasta(gene['name'], collapse_data(itr_intersect, sequence),
+                    f'{od}/bii.fasta')
 
     #==========================#
     #   c) Exon intersection   #
     #==========================#
-    itr_union =
+    exon_intersect = [(i[0][1], i[1][0]) for i in zip(itr_union[:-1],
+                                                      itr_union[1:])]
+    # If the intron union does not stretch to gene boundaries, we add leading
+    # and/or trailing end of gene to exon intersection
+    if start < min(itr_union, key=lambda i: i[0]):
+        exon_intersect = [(start, itr_union[0][0])] + exon_intersect
+    if end > max(itr_union, key=lambda i: i[1]):
+        exon_intersect = exon_intersect + [(itr_union[-1][1], end)]
+    append_to_fasta(gene['name'], collapse_data(exon_intersect, sequence),
+                    f'{od}/c.fasta')
+
+    #=========================#
+    #   d) Retained introns   #
+    #=========================#
+
+    #==============================================#
+    #   e) Retained exon-intron splice junctions   #
+    #==============================================#
+    append_to_fasta(gene['name'], collapse_data(retained_sjs, sequence),
+                    f'{od}/e.fasta')
+
+        # If current isoform doesn't start at gene boundaries, we add those as
+        # retained introns
+        # if start < min(exons, key=lambda i: i[0]):
+            # itrs = [(start, exons[0][0])] + itrs
+        # if end > max(exons, key=lambda i: i[1]):
+            # itrs = itrs + [(exons[-1][1], end)]
 
 
 
-def parse_gff(path, scaffolds, od, file_format):
-    # Who the hell came up with this stupid file format?
+
+def parse_gff(path, scaffolds, file_format, od, L):
+    # Who the hell came up with this hecking file format?
     gene = {}
     tr2g = []
     with open(path, 'r') as fh:
@@ -61,23 +151,22 @@ def parse_gff(path, scaffolds, od, file_format):
             # Skip comments
             if line.startswith('#'):
                 continue
-            data = line.split('\t')
 
+            data = line.split('\t')
             fields = {
                 'scaffold': data[0],
                 'feature': data[2],
-                'start': int(data[3]) - 1, # Scaffold is 1-indexed
+                'start': int(data[3]) - 1, # Scaffold is 0-indexed
                 'end': int(data[4]) - 1,
                 'strand': data[6],
                 'rest': parse_rest(data[8], file_format)
             }
             gene_id = fields['rest']['gene_id']
 
-            # Process current gene and start collecting exons for
-            # next gene
+            # Process current gene and start collecting exons for next gene
             if gene_id != prev_gene_id:
                 if prev_gene_id is not None:
-                    process_gene(gene, scaffolds)
+                    process_gene(gene, scaffolds, L)
                 gene = {
                         'name': gene_id,
                         'trs': {},
@@ -100,15 +189,15 @@ def parse_gff(path, scaffolds, od, file_format):
                         gene['trs'][tr]['exons'].append(fields)
 
         # Process last gene in file
-        process_gene(gene, scaffolds)
+        process_gene(gene, scaffolds, od, L)
 
     with open(f'{od}/tr2g', 'w') as fh:
         fh.write('\n'.join(tr2g))
 
-def split_assembled_genome(gff_path, fasta_path, file_format, od='.'):
+def split_assembled_genome(gff_path, fasta_path, file_format, od='.', L=150):
     scaffolds = parse_fasta(fasta_path)
     print('scaffolds parsed')
-    trs, itrs = parse_gff(gff_path, scaffolds, od, file_format)
+    trs, itrs = parse_gff(gff_path, scaffolds, file_format, od, L)
     print('gff parsed')
 
     """
