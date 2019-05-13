@@ -34,6 +34,8 @@ from utils import (reverse_complement, parse_rest, parse_fasta, collapse_N,
                    merge_intervals, overlap, len_overlap)
 
 def append_to_fasta(tr, data, path):
+    if len(data) == 0:
+        return
     with open(path, 'a') as fh:
         fh.write(f'>{tr}\n')
         fh.write('\n'.join([data[i:i+80] for i in range(0, len(data), 80)]))
