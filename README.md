@@ -1,20 +1,23 @@
 # Split Assembled Transcriptome
 
+Usage:
 ```
 ./split_assembled_transcriptome.py annotation.gff scaffolds.fasta output_directory L
 ```
 
-Parses a gff/gtf file into the following collections
-    Unambiguous:
-        a) Processed
-            a.i)    Exon-exon splice junctions
-        b) Unprocessed
-            b.i)    Non-retained exon-intron splice junctions
-            b.ii)   Intron intersection
-    Ambiguous:
-        c) Exon intersection
-        d) Retained introns (i.e. pairwise exon set difference)
-        e) Retained exon-intron splice junctions
+Parses a gff/gtf file into the following categories
+- Unambiguous:
+    * a) Processed
+        + a.i)    Exon-exon splice junctions
+    * b) Unprocessed
+        + b.i)    Non-retained exon-intron splice junctions
+        + b.ii)   Intron intersection
+- Ambiguous:
+    + c) Exon intersection
+    + d) Retained introns (i.e. pairwise exon set difference)
+    + e) Retained exon-intron splice junctions
+
+Outputs a separate fasta file for each category
 
 # A Major Caveat
 
