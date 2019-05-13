@@ -31,7 +31,7 @@ from operator import itemgetter
 from itertools import chain
 
 from utils import (reverse_complement, parse_rest, parse_fasta, collapse_N,
-                   merge_intervals)
+                   merge_intervals, get_overlap)
 
 def append_to_fasta(tr, data, path):
     with open(path, 'a') as fh:
@@ -79,22 +79,30 @@ def process_gene(gene, scaffolds, od, L):
     #   b.i) Non-retained exon-intron splice junctions   #
     #====================================================#
     sjs = []
-    for e in ivs:
-        sjs.append((e['start'] - L + 1, e['start'] + L - 1))
-        sjs.append((e['end'] - L + 1, e['end'] + L - 1))
-
     retained_sjs = []
     nonretained_sjs = []
-    for sj in sjs:
-        retained = False
-        for iv in itr_union + exon_union:
-            if iv[0] <= sj[0] and iv[1] >= sj[1]:
-                retained = True
-                break
-        if retained:
-            retained_sjs.append(sj)
+    for e in ivs:
+        ie = (e['start'] - L + 1, e['start'] + L - 1)
+        ei = (e['end'] - L + 1, e['end'] + L - 1)
+        ie_retained, ei_retained = False, False
+        for iv in itr_union:
+            if get_overlap(iv, (e['start'], ie[1])) > 0:
+                ie_retained = True
+            if get_overlap(iv, (ei[0], e['end'])) > 0:
+                ei_retained = True
+        for iv in exon_union:
+            if get_overlap(iv, (ie[0], e['start'])) > 0:
+                ie_retained = True
+            if get_overlap(iv, (e['end'], ei[1])) > 0:
+                ei_retained = True
+        if ie_retained:
+            retained_sjs.append(ie_retained)
         else:
-            nonretained_sjs.append(sj)
+            nonretained_sjs.append(ie_retained)
+        if ei_retained:
+            retained_sjs.append(ei_retained)
+        else:
+            nonretained_sjs.append(ei_retained)
 
     append_to_fasta(gene['name'], collapse_data(nonretained_sjs, sequence),
                     f'{od}/bi.fasta')
@@ -132,7 +140,7 @@ def process_gene(gene, scaffolds, od, L):
                     f'{od}/e.fasta')
 
 def parse_gff(path, scaffolds, file_format, od, L):
-    # Who the hell came up with this hecking file format?
+    # Who the heck came up with this hecking file format?
     gene = {}
     tr2g = []
     with open(path, 'r') as fh:
