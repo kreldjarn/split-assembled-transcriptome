@@ -1,6 +1,20 @@
 # Split Assembled Transcriptome
 
-Given an annotation file on the `.GTF` or `.GFF3` formats and a .`fasta` file containing the corresponding scaffolds, outputs two fasta files containing the processed and the unprocessed versions of the transcriptome, respectively.
+```
+./split_assembled_transcriptome.py annotation.gff scaffolds.fasta output_directory L
+```
+
+Parses a gff/gtf file into the following collections
+    Unambiguous:
+        a) Processed
+            a.i)    Exon-exon splice junctions
+        b) Unprocessed
+            b.i)    Non-retained exon-intron splice junctions
+            b.ii)   Intron intersection
+    Ambiguous:
+        c) Exon intersection
+        d) Retained introns (i.e. pairwise exon set difference)
+        e) Retained exon-intron splice junctions
 
 # A Major Caveat
 
