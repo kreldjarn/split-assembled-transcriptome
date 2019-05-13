@@ -25,12 +25,16 @@ def parse_rest(rest, file_format='.gff3'):
         # Sorry, this is a disgusting file format
         # Who the heck puts semicolons in a semicolon-delimited file?!
         PATTERN = re.compile(r'''((?:[^;"']|"[^"]*"|'[^']*')+)''')
-        rest = PATTERN.split(rest)[1::2]
-        return dict(map(lambda x: x.rstrip('\n')\
-                                   .lstrip(' ')\
-                                   .replace('"', '')\
-                                   .split(' ', 1), rest))
-                        # rest.rstrip(';').split(';')[:-1]))
+        rest = PATTERN.split(rest.rstrip('\n'))[1::2]
+        try:
+            return dict(map(lambda x: x.rstrip('\n')\
+                                       .lstrip(' ')\
+                                       .replace('"', '')\
+                                       .split(' ', 1), rest))
+                            # rest.rstrip(';').split(';')[:-1]))
+        except Exception as e:
+            print([r.rstrip('\n').lstrip(' ').replace('"', '').split(' ', 1) for r in rest])
+            print(rest)
 
 
 def parse_fasta(path):
@@ -63,6 +67,22 @@ def merge_intervals(intervals):
             yield low, high
             low, high = iv
     yield low, high
+
+def len_overlap(a, b):
+    return max(0, min(a[1], b[1]) - max(a[0], b[0]))
+
+def overlap(iv1, iv2):
+    start = end = 0
+    if iv2[0] <= iv1[0] <= iv2[1]:
+        start = iv1[0]
+    elif iv1[0] <= iv2[0] <= iv1[1]:
+        start = iv2[0]
+    if iv2[0] <= iv1[1] <= iv2[1]:
+        end = iv1[1]
+    elif iv1[0] <= iv2[1] <= iv1[1]:
+        end = iv2[1]
+    return (start, end)
+
 
 def collapse_N(string, k=31):
     # Collapses arbitrary length regions of N-bases into regions of length k
