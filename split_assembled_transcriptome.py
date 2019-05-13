@@ -84,6 +84,27 @@ def process_gene(gene, scaffolds, od, L):
         append_to_fasta(tr, collapse_data(ee_sjs, sequence, gene['strand']),
                         f'{od}/a_exon_exon_splice_junctions.fasta')
 
+        # TODO:
+        # Do we need to make sure the exons are at least of length L-1?
+        # As per the following:
+
+        # i = 0
+        # ee_sjs = []
+        # start = exons[i][0]
+        # while i < len(exons) - 2:
+            # if exons[i][1] - exons[i][0] > L-1:
+                # start = exons[i][1] - L + 1
+            # while exons[i + 1][1] - exons[i + 1][0] < L and i < len(exons) - 2:
+                # i += 1
+            # if exons[i + 1][1] - exons[i + 1][0] > L-1:
+                # end = exons[i + 1][0] + L - 1
+            # else:
+                # # We must be at last exon in isoform here
+                # end = exons[i + 1][1]
+            # ee_sjs.append((start, end))
+            # i += 1
+            # start = exons[i][0]
+
     #====================================================#
     #   b.i) Non-retained exon-intron splice junctions   #
     #====================================================#
