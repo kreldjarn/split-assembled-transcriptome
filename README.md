@@ -2,7 +2,7 @@
 
 Usage:
 ```
-./split_assembled_transcriptome.py annotation.gff scaffolds.fasta output_directory
+./split_assembled_transcriptome.py annotation.gff scaffolds.fasta output_directory L
 ```
 
 Parses a gff/gtf file into the following categories
